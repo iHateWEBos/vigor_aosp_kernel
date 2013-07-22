@@ -33,8 +33,8 @@
 #include <linux/delay.h>
 
 #define MPDEC_TAG "[MPDEC]: "
-#define MSM_MPDEC_STARTDELAY 40000
-#define MSM_MPDEC_DELAY 500
+#define MSM_MPDEC_STARTDELAY 30000
+#define MSM_MPDEC_DELAY 150
 #define MSM_MPDEC_PAUSE 10000
 
 enum {
@@ -67,8 +67,8 @@ static struct msm_mpdec_tuners {
 	.scroff_single_core = true,
 };
 
-static unsigned int NwNs_Threshold[4] = {20, 0, 0, 5};
-static unsigned int TwTs_Threshold[4] = {250, 0, 0, 250};
+static unsigned int NwNs_Threshold[4] = {15, 0, 0, 5};
+static unsigned int TwTs_Threshold[4] = {150, 0, 0, 150};
 
 extern unsigned int get_rq_info(void);
 unsigned int state = MSM_MPDEC_IDLE;

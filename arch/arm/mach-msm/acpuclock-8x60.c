@@ -65,6 +65,7 @@
  * The PLL hardware has a minimum frequency of 384MHz.
  * Calibration should respect this limit. */
 #define L_VAL_SCPLL_CAL_MIN	0x08 /* =  432 MHz with 27MHz source */
+#define FREQ_TABLE_SIZE		32 /* =  32*54 = 1728000 */
 
 #define MAX_VDD_SC		1250000 /* uV */
 #define MAX_VDD_MEM		1250000 /* uV */
@@ -104,8 +105,6 @@
 
 /* PTE EFUSE register. */
 #define QFPROM_PTE_EFUSE_ADDR		(MSM_QFPROM_BASE + 0x00C0)
-
-#define FREQ_TABLE_SIZE			34
 
 
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
@@ -180,8 +179,8 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[0] =  BW_MBPS(824), /* At least 103 MHz on bus. */
 	[1] = BW_MBPS(1336), /* At least 167 MHz on bus. */
 	[2] = BW_MBPS(2008), /* At least 251 MHz on bus. */
-	[3] = BW_MBPS(2720), /* At least 340 MHz on bus. */
-	[4] = BW_MBPS(3600), /* At least 450 MHz on bus. */
+	[3] = BW_MBPS(2880), /* At least 360 MHz on bus. */
+	[4] = BW_MBPS(3280), /* At least 410 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -224,7 +223,7 @@ static struct clkctl_l2_speed l2_freq_tbl_v2[] = {
 
 /* SCPLL frequencies = 2 * 27 MHz * L_VAL */
 static struct clkctl_acpu_speed acpu_freq_tbl_fast[] = {
-  { {1, 1},  96000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),   725000, 0x03006000},
+  { {1, 1},  192000,  ACPU_PLL_8, 3, 1, 0, 0,    L2(1),   800000, 0x03006000},
   /* MAX_AXI row is used to source CPU cores and L2 from the AFAB clock. */
   { {0, 0},  MAX_AXI, ACPU_AFAB,  1, 0, 0, 0,    L2(0),   825000, 0x03006000},
   { {1, 1},  384000,  ACPU_PLL_8, 3, 0, 0, 0,    L2(1),   825000, 0x03006000},
@@ -245,15 +244,14 @@ static struct clkctl_acpu_speed acpu_freq_tbl_fast[] = {
   { {1, 1}, 1188000,  ACPU_SCPLL, 0, 0, 1, 0x16, L2(15), 1050000, 0x03006000},
   { {1, 1}, 1242000,  ACPU_SCPLL, 0, 0, 1, 0x17, L2(16), 1075000, 0x03006000},
   { {1, 1}, 1296000,  ACPU_SCPLL, 0, 0, 1, 0x18, L2(17), 1100000, 0x03006000},
-  { {1, 1}, 1350000,  ACPU_SCPLL, 0, 0, 1, 0x19, L2(18), 1125000, 0x03006000},
-  { {1, 1}, 1404000,  ACPU_SCPLL, 0, 0, 1, 0x1A, L2(19), 1150000, 0x03006000},
+  { {1, 1}, 1350000,  ACPU_SCPLL, 0, 0, 1, 0x19, L2(18), 1100000, 0x03006000},
+  { {1, 1}, 1404000,  ACPU_SCPLL, 0, 0, 1, 0x1A, L2(19), 1125000, 0x03006000},
   { {1, 1}, 1458000,  ACPU_SCPLL, 0, 0, 1, 0x1B, L2(20), 1150000, 0x03006000},
-  { {1, 1}, 1512000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(21), 1175000, 0x03006000},
+  { {1, 1}, 1512000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(21), 1150000, 0x03006000},
   { {1, 0}, 1566000,  ACPU_SCPLL, 0, 0, 1, 0x1D, L2(22), 1175000, 0x03006000},
   { {1, 1}, 1620000,  ACPU_SCPLL, 0, 0, 1, 0x1E, L2(22), 1200000, 0x03006000},
   { {1, 0}, 1674000,  ACPU_SCPLL, 0, 0, 1, 0x1F, L2(22), 1225000, 0x03006000},
   { {1, 1}, 1728000,  ACPU_SCPLL, 0, 0, 1, 0x20, L2(22), 1250000, 0x03006000},
-  { {1, 1}, 1836000,  ACPU_SCPLL, 0, 0, 1, 0x21, L2(22), 1250000, 0x03006000},
   { {0, 0}, 0 },
 };
 
@@ -833,7 +831,7 @@ static __init struct clkctl_acpu_speed *select_freq_plan(void)
 		pvs = (pte_efuse >> 13) & 0x7;
 
 	/* match max OC allowable */
-	max_khz = 1836000; //1512000;
+	max_khz = 1728000; //1512000;
 	/* set everything to default to freq fast table regardless of efuse reading */
 	switch (pvs) {
 		case 0x0:
