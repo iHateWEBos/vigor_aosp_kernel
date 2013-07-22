@@ -700,9 +700,6 @@ void l2cap_send_cmd(struct l2cap_conn *conn, u8 ident, u8 code, u16 len, void *d
 	if (!skb)
 		return;
 
-	if (conn->hcon == NULL || conn->hcon->hdev == NULL)
-		return;
-
 	if (lmp_no_flush_capable(conn->hcon->hdev))
 		flags = ACL_START_NO_FLUSH;
 	else
@@ -2810,6 +2807,9 @@ static struct sk_buff *l2cap_build_cmd(struct l2cap_conn *conn,
 	BT_DBG("conn %p, code 0x%2.2x, ident 0x%2.2x, len %d",
 			conn, code, ident, dlen);
 
+	if (conn->mtu < L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE)
+		return NULL;
+
 	len = L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE + dlen;
 	count = min_t(unsigned int, mtu, len);
 
@@ -3290,7 +3290,7 @@ int l2cap_build_conf_req(struct sock *sk, void *data)
 	struct l2cap_conf_rfc rfc = { .mode = pi->mode };
 	void *ptr = req->data;
 
-	BT_DBG("sk %p mode %d", sk, pi->mode);
+	BT_DBG("sk %p", sk);
 
 	if (pi->num_conf_req || pi->num_conf_rsp)
 		goto done;
@@ -3316,6 +3316,7 @@ done:
 		if (!(pi->conn->feat_mask & L2CAP_FEAT_ERTM) &&
 				!(pi->conn->feat_mask & L2CAP_FEAT_STREAMING))
 			break;
+
 		rfc.txwin_size      = 0;
 		rfc.max_transmit    = 0;
 		rfc.retrans_timeout = 0;
@@ -3465,9 +3466,6 @@ static int l2cap_parse_conf_req(struct sock *sk, void *data)
 
 	BT_DBG("sk %p", sk);
 
-	if (pi->omtu > mtu)
-		mtu = pi->omtu;
-
 	while (len >= L2CAP_CONF_OPT_SIZE) {
 		len -= l2cap_get_conf_opt(&req, &type, &olen, &val);
 
@@ -3569,8 +3567,6 @@ done:
 	if (pi->mode != rfc.mode) {
 		result = L2CAP_CONF_UNACCEPT;
 		rfc.mode = pi->mode;
-		if (mtu > L2CAP_DEFAULT_MTU)
-			pi->omtu = mtu;
 
 		if (pi->num_conf_rsp == 1)
 			return -ECONNREFUSED;
@@ -5404,6 +5400,9 @@ static void l2cap_logical_link_complete(struct hci_chan *chan, u8 status)
 
 	BT_DBG("sk %p", sk);
 
+	if (!sk)
+		return;
+
 	lock_sock(sk);
 
 	if (sk->sk_state != BT_CONNECTED && !l2cap_pi(sk)->amp_id) {
@@ -5543,11 +5542,8 @@ static void l2cap_logical_link_worker(struct work_struct *work)
 		container_of(work, struct l2cap_logical_link_work, work);
 	struct sock *sk = log_link_work->chan->l2cap_sk;
 
-	if (sk) {
-		l2cap_logical_link_complete(log_link_work->chan,
-							log_link_work->status);
-		sock_put(sk);
-	}
+	l2cap_logical_link_complete(log_link_work->chan, log_link_work->status);
+	sock_put(sk);
 	hci_chan_put(log_link_work->chan);
 	kfree(log_link_work);
 }
@@ -7249,30 +7245,13 @@ done:
 static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid,
 							struct sk_buff *skb)
 {
-	struct sock *sk = NULL;
+	struct sock *sk;
 	struct sk_buff *skb_rsp;
 	struct l2cap_hdr *lh;
 	int dir;
+	u8 mtu_rsp[] = {L2CAP_ATT_MTU_RSP, 23, 0};
 	u8 err_rsp[] = {L2CAP_ATT_ERROR, 0x00, 0x00, 0x00,
 						L2CAP_ATT_NOT_SUPPORTED};
-
-	if (skb->data[0] == L2CAP_ATT_MTU_REQ) {
-		u8 mtu_rsp[] = {L2CAP_ATT_MTU_RSP, 23, 0};
-
-		skb_rsp = bt_skb_alloc(sizeof(mtu_rsp) + L2CAP_HDR_SIZE,
-								GFP_ATOMIC);
-		if (!skb_rsp)
-			goto drop;
-
-		lh = (struct l2cap_hdr *) skb_put(skb_rsp, L2CAP_HDR_SIZE);
-		lh->len = cpu_to_le16(sizeof(mtu_rsp));
-		lh->cid = cpu_to_le16(L2CAP_CID_LE_DATA);
-		memcpy(skb_put(skb_rsp, sizeof(mtu_rsp)), mtu_rsp,
-							sizeof(mtu_rsp));
-		hci_send_acl(conn->hcon, NULL, skb_rsp, 0);
-
-		goto free_skb;
-	}
 
 	dir = (skb->data[0] & L2CAP_ATT_RESPONSE_BIT) ? 0 : 1;
 
@@ -7294,30 +7273,28 @@ static inline int l2cap_att_channel(struct l2cap_conn *conn, __le16 cid,
 	if (l2cap_pi(sk)->imtu < skb->len)
 		goto drop;
 
+	if (skb->data[0] == L2CAP_ATT_MTU_REQ) {
+		skb_rsp = bt_skb_alloc(sizeof(mtu_rsp) + L2CAP_HDR_SIZE,
+								GFP_ATOMIC);
+		if (!skb_rsp)
+			goto drop;
+
+		lh = (struct l2cap_hdr *) skb_put(skb_rsp, L2CAP_HDR_SIZE);
+		lh->len = cpu_to_le16(sizeof(mtu_rsp));
+		lh->cid = cpu_to_le16(L2CAP_CID_LE_DATA);
+		memcpy(skb_put(skb_rsp, sizeof(mtu_rsp)), mtu_rsp,
+							sizeof(mtu_rsp));
+		hci_send_acl(conn->hcon, NULL, skb_rsp, 0);
+
+		goto free_skb;
+	}
+
 	if (!sock_queue_rcv_skb(sk, skb))
 		goto done;
 
 drop:
-	if (skb->data[0] != L2CAP_ATT_INDICATE)
-		goto not_indicate;
-
-	/* If this is an incoming Indication, we are required to confirm */
-
-	skb_rsp = bt_skb_alloc(sizeof(u8) + L2CAP_HDR_SIZE, GFP_ATOMIC);
-	if (!skb_rsp)
-		goto free_skb;
-
-	lh = (struct l2cap_hdr *) skb_put(skb_rsp, L2CAP_HDR_SIZE);
-	lh->len = cpu_to_le16(sizeof(u8));
-	lh->cid = cpu_to_le16(L2CAP_CID_LE_DATA);
-	err_rsp[0] = L2CAP_ATT_CONFIRM;
-	memcpy(skb_put(skb_rsp, sizeof(u8)), err_rsp, sizeof(u8));
-	hci_send_acl(conn->hcon, NULL, skb_rsp, 0);
-	goto free_skb;
-
-not_indicate:
-	if (skb->data[0] & L2CAP_ATT_RESPONSE_BIT ||
-			skb->data[0] == L2CAP_ATT_CONFIRM)
+	if (skb->data[0] & L2CAP_ATT_RESPONSE_BIT &&
+			skb->data[0] != L2CAP_ATT_INDICATE)
 		goto free_skb;
 
 	/* If this is an incoming PDU that requires a response, respond with

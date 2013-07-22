@@ -51,6 +51,7 @@
 #include <linux/hrtimer.h>
 
 #include <linux/fb.h>
+#include <linux/ion.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -194,6 +195,7 @@ struct msm_fb_data_type {
 #if defined CONFIG_FB_MSM_MDP_ABL
 	boolean enable_abl;
 #endif
+	struct ion_client *client;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);
@@ -204,6 +206,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl);
 struct platform_device *msm_fb_add_device(struct platform_device *pdev);
 
 int msm_fb_detect_client(const char *name);
+int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp);
 
 #ifdef CONFIG_FB_BACKLIGHT
 void msm_fb_config_backlight(struct msm_fb_data_type *mfd);

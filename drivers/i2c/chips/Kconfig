@@ -115,12 +115,6 @@ config CODEC_AIC3254
 	help
 	  AIC3254 Driver implemented by HTC.
 
-config CODEC_AIC3008
-	tristate "Codec AIC3008 support"
-	depends on I2C=y
-	help
-	  AIC3008 Driver implemented by HTC.
-
 config SOUND_CONTROL_HAX_GPL
 	tristate "TPA2051D3 sound control hax"
 	default y

@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_qtaguid.h>
+#include <linux/ratelimit.h>
 #include <linux/skbuff.h>
 #include <linux/workqueue.h>
 #include <net/addrconf.h>
@@ -1265,7 +1266,7 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 	struct data_counters *uid_tag_counters;
 	struct sock_tag *sock_tag_entry;
 	struct iface_stat *iface_entry;
-	struct tag_stat *new_tag_stat = NULL;
+	struct tag_stat *new_tag_stat=0;
 	MT_DEBUG("qtaguid: if_tag_stat_update(ifname=%s "
 		"uid=%u sk=%p dir=%d proto=%d bytes=%d)\n",
 		 ifname, uid, sk, direction, proto, bytes);
@@ -1273,7 +1274,7 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 
 	iface_entry = get_iface_entry(ifname);
 	if (!iface_entry) {
-		pr_info("[NET] qtaguid: iface_stat: stat_update() %s not found\n",
+		pr_info_ratelimited("[NET] qtaguid: iface_stat: stat_update() %s not found\n",
 		       ifname);
 		return;
 	}
@@ -1557,9 +1558,9 @@ static void account_for_uid(const struct sk_buff *skb,
 	}
 
 	if (unlikely(!el_dev)) {
-		pr_info("qtaguid[%d]: no par->in/out?!!\n", par->hooknum);
+		pr_info_ratelimited("qtaguid[%d]: no par->in/out?!!\n", par->hooknum);
 	} else if (unlikely(!el_dev->name)) {
-		pr_info("qtaguid[%d]: no dev->name?!!\n", par->hooknum);
+		pr_info_ratelimited("qtaguid[%d]: no dev->name?!!\n", par->hooknum);
 	} else {
 		MT_DEBUG("qtaguid[%d]: dev name=%s type=%d\n",
 			 par->hooknum,

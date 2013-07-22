@@ -387,6 +387,7 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
+	memset(la, 0, sizeof(struct sockaddr_l2));
 	addr->sa_family = AF_BLUETOOTH;
 	*len = sizeof(struct sockaddr_l2);
 
@@ -1171,7 +1172,7 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 static int l2cap_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct sock *sk2 = NULL;
+	struct sock *srv_sk = NULL;
 	int err;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
@@ -1179,16 +1180,15 @@ static int l2cap_sock_release(struct socket *sock)
 	if (!sk)
 		return 0;
 
-	/* If this is an ATT socket, find it's matching server/client */
-	if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA)
-		sk2 = l2cap_find_sock_by_fixed_cid_and_dir(L2CAP_CID_LE_DATA,
-					&bt_sk(sk)->src, &bt_sk(sk)->dst,
-					l2cap_pi(sk)->incoming ? 0 : 1);
+	/* If this is an ATT Client socket, find the matching Server */
+	if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA && !l2cap_pi(sk)->incoming)
+		srv_sk = l2cap_find_sock_by_fixed_cid_and_dir(L2CAP_CID_LE_DATA,
+					&bt_sk(sk)->src, &bt_sk(sk)->dst, 1);
 
-	/* If matching socket found, request tear down */
-	BT_DBG("sock:%p companion:%p", sk, sk2);
-	if (sk2)
-		l2cap_sock_set_timer(sk2, 1);
+	/* If server socket found, request tear down */
+	BT_DBG("client:%p server:%p", sk, srv_sk);
+	if (srv_sk)
+		l2cap_sock_set_timer(srv_sk, 1);
 
 	err = l2cap_sock_shutdown(sock, 2);
 

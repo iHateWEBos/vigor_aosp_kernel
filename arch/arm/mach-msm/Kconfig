@@ -943,6 +943,10 @@ choice
 
 endchoice
 
+config CPU_VOLTAGE_TABLE
+  	bool "Enable CPU Voltage Table via sysfs for adjustements"
+  	default y
+
 config MSM_DEBUG_UART
 	int
 	default 1 if MSM_DEBUG_UART1
@@ -1528,6 +1532,12 @@ config MSM_MPDEC
 	help
 	  This enables kernel based multi core control.
 	  (up/down hotplug based on load)
+
+config CMDLINE_OPTIONS
+	bool "Enable cmdline options command parsing"
+	default n
+	help
+	  This enables the parsing of cmdline options.
 
 if CPU_FREQ_MSM
 
@@ -2276,4 +2286,12 @@ config REMOVE_EBI1_FIXED_CLK
 	help
 		use for 2x Radio
 
+config FORCE_FAST_CHARGE
+	bool "Force AC charge mode at will"
+	default y
+	help
+		A simple sysfs interface to force adapters that
+		are detected as USB to charge as AC.
+
 endif
+

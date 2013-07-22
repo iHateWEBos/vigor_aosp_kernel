@@ -6,6 +6,16 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
+config RANDOM_READ_WAKEUP
+	int "RNG Read Wakeup Threshold"
+	default 256
+	help
+
+config RANDOM_WRITE_WAKEUP
+	int "RNG Write Wakeup Threshold"
+	default 512
+	help
+
 config DEVMEM
 	bool "Memory device driver"
 	default y
@@ -685,6 +695,10 @@ config CSDIO_DEVICE_ID
 	help
 	  Enter device id for targeted sdio device, this may be overwritten by
 	  module parameters.
+
+config FRANDOM
+	tristate
+	default y
 .
 endmenu
 

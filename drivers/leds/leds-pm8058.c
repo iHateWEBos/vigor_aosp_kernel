@@ -27,6 +27,14 @@
 #include <mach/htc_headset_misc.h>
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
+#include <linux/atmel_qt602240.h>
+#endif
+
+#ifdef CONFIG_LEDS_PM8058_multiplier
+#include <linux/leds-pm8058-multiplier.h>
+#endif
+
 #ifdef CONFIG_HTC_HEADSET_MISC
 #define charming_led_enable(enable) headset_indicator_enable(enable)
 #else
@@ -150,7 +158,7 @@ static void pm8058_pwm_led_brightness_set(struct led_classdev *led_cdev,
 	}
 }
 
-static void pm8058_drvx_led_brightness_set(struct led_classdev *led_cdev,
+extern void pm8058_drvx_led_brightness_set(struct led_classdev *led_cdev,
 					   enum led_brightness brightness)
 {
 	struct pm8058_led_data *ldata;
@@ -393,11 +401,33 @@ static ssize_t pm8058_led_off_timer_store(struct device *dev,
 	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
 	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
 
+#ifdef CONFIG_LEDS_PM8058_multiplier
+	switch (off_timer_multiplier) {
+		case OFF_TIMER_INFINITE:	{
+							/* If infinate notification set, don't set any timer */
+							LED_INFO_LOG("Not setting %s off_timer to %d min %d sec\n",
+											     led_cdev->name, min, sec);
+							return -EINVAL;
+						}
+		case OFF_TIMER_NORMAL:		{
+							LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
+											   led_cdev->name, min, sec);
+
+							off_timer = min * 60 + sec;
+						}
+		default:			{
+							LED_INFO_LOG("Setting %s off_timer to %d min %d sec multiplied by %d\n",
+											   led_cdev->name, min, sec, off_timer_multiplier);
+
+							off_timer = (min * 60 + sec) * off_timer_multiplier;
+						}
+	}
+#else
 	LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
 					   led_cdev->name, min, sec);
 
 	off_timer = min * 60 + sec;
-
+#endif
 	alarm_cancel(&ldata->led_alarm);
 	cancel_work_sync(&ldata->led_work);
 	if (off_timer) {
@@ -593,6 +623,13 @@ static int pm8058_led_probe(struct platform_device *pdev)
 			goto err_register_attr_currents;
 		}
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
+	if (!strcmp(pdata->led_config[3].name, "button-backlight")) {
+		sweep2wake_setleddev(&ldata[3].ldev);
+		printk(KERN_INFO "[sweep2wake]: set led device %s, bank %d\n", pdata->led_config[3].name, ldata[3].bank);
+	}
+#endif
 
 	return 0;
 
