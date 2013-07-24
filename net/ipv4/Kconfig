@@ -567,6 +567,10 @@ config TCP_CONG_ILLINOIS
 	For further details see:
 	  http://www.ews.uiuc.edu/~shaoliu/tcpillinois/index.html
 
+config TCP_CONG_SOCIOPATH
+	tristate "TCP Sociopath"
+	default n
+
 choice
 	prompt "Default TCP congestion control"
 	default DEFAULT_CUBIC

@@ -3038,18 +3038,17 @@ static void __init msm8x60_init_dsps(void)
 #define MSM_FB_PRIM_BUF_SIZE	0x708000
 #endif
 
-#ifdef CONFIG_FB_MSM_OVERLAY_WRITEBACK
-/* 1280 x 720 x 3(bpp) x 2(pages) frame buffer */
-#define MSM_FB_WRITEBACK_SIZE	0x546000
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#define MSM_FB_EXT_BUF_SIZE  (roundup((1920 * 1080 * 2), 4096) * 1) /* 2 bpp x 1 page */
 #else
-#define MSM_FB_WRITEBACK_SIZE	0
+#define MSM_FB_EXT_BUFT_SIZE    0
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 /* prim = 1024 x 600 x 4(bpp) x 2(pages)
  * hdmi = 1920 x 1080 x 2(bpp) x 1(page)
  * Note: must be multiple of 4096 */
-#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + 0x3F4800 + MSM_FB_WRITEBACK_SIZE, 4096)
+#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE, 4096)
 #elif defined(CONFIG_FB_MSM_TVOUT)
 /* prim = 1024 x 600 x 4(bpp) x 2(pages)
  * tvout = 720 x 576 x 2(bpp) x 2(pages)
@@ -3061,22 +3060,18 @@ static void __init msm8x60_init_dsps(void)
 
 #define MSM_PMEM_SF_SIZE         0x4000000 /* 64 Mbytes */
 
-#define MSM_PMEM_ADSP2_SIZE      0x800000
-#define MSM_PMEM_ADSP_SIZE       0x2C00000
+#define MSM_PMEM_ADSP_SIZE       0x239C000
 /* MAX( prim, video)
  * prim = 1280 * 736 * 4 * 2
  * video = 1152 * 1920 * 1.5 * 2
 */
 #define MSM_PMEM_AUDIO_SIZE      0x239000
-#define MSM_PMEM_TZCOM_SIZE      0xC7000
 
-#define MSM_PMEM_ADSP2_BASE      (0x80000000 - MSM_PMEM_ADSP2_SIZE)
-#define MSM_PMEM_ADSP_BASE       (MSM_PMEM_ADSP2_BASE - MSM_PMEM_ADSP_SIZE)
-#define MSM_PMEM_SF_BASE	 (MSM_PMEM_ADSP_BASE - MSM_PMEM_SF_SIZE)
+#define MSM_PMEM_ADSP_BASE       (0x40400000)
+#define MSM_PMEM_SF_BASE	 (MSM_FB_BASE - MSM_PMEM_SF_SIZE)
 
-#define MSM_PMEM_TZCOM_BASE         (0x40400000)
-#define MSM_PMEM_AUDIO_BASE      (MSM_PMEM_TZCOM_BASE + MSM_PMEM_TZCOM_SIZE)
-#define MSM_FB_BASE              (MSM_PMEM_AUDIO_BASE + MSM_PMEM_AUDIO_SIZE)
+#define MSM_PMEM_AUDIO_BASE      (MSM_PMEM_ADSP_BASE + MSM_PMEM_ADSP_SIZE)
+#define MSM_FB_BASE              (0x80000000 - MSM_FB_SIZE)
 
 #define MSM_SMI_BASE				0x38000000
 #define MSM_SMI_SIZE				0x4000000
@@ -3157,19 +3152,6 @@ static struct platform_device android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct android_pmem_platform_data android_pmem_adsp2_pdata = {
-	.name = "pmem_adsp2",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 0,
-	.memory_type = MEMTYPE_EBI1,
-};
-
-static struct platform_device android_pmem_adsp2_device = {
-	.name = "android_pmem",
-	.id = 3,
-	.dev = { .platform_data = &android_pmem_adsp2_pdata },
 };
 
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
@@ -7518,7 +7500,6 @@ static struct platform_device *vigor_devices[] __initdata = {
 #ifdef CONFIG_ANDROID_PMEM
 	&android_pmem_sf_device,
 	&android_pmem_adsp_device,
-	&android_pmem_adsp2_device,
 	&android_pmem_audio_device,
 	&android_pmem_smipool_device,
 #endif
@@ -7628,12 +7609,6 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 	[MEMTYPE_EBI0] = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
-	[MEMTYPE_EBI1] = {
-		.start	=	MSM_PMEM_TZCOM_BASE,
-		.limit	=	MSM_PMEM_TZCOM_SIZE,
-		.size	=	MSM_PMEM_TZCOM_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
-	},
 };
 
 static void __init size_pmem_device(struct android_pmem_platform_data *pdata, unsigned long start, unsigned long size)
@@ -7648,7 +7623,6 @@ static void __init size_pmem_devices(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
 	size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
-	size_pmem_device(&android_pmem_adsp2_pdata, MSM_PMEM_ADSP2_BASE, MSM_PMEM_ADSP2_SIZE);
 	size_pmem_device(&android_pmem_smipool_pdata, MSM_PMEM_SMIPOOL_BASE, MSM_PMEM_SMIPOOL_SIZE);
 	size_pmem_device(&android_pmem_audio_pdata, MSM_PMEM_AUDIO_BASE, pmem_audio_size);
 	size_pmem_device(&android_pmem_sf_pdata, MSM_PMEM_SF_BASE, pmem_sf_size);
