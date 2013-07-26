@@ -170,7 +170,7 @@ struct clkctl_acpu_speed {
 		.vectors = &(struct msm_bus_vectors){ \
 			.src = MSM_BUS_MASTER_AMPSS_M0, \
 			.dst = MSM_BUS_SLAVE_EBI_CH0, \
-			.ib = (_bw) * 1000000ULL, \
+			.ib = (_bw) * 1000000UL, \
 			.ab = 0, \
 		}, \
 		.num_paths = 1, \
@@ -248,9 +248,9 @@ static struct clkctl_acpu_speed acpu_freq_tbl_fast[] = {
   { {1, 1}, 1404000,  ACPU_SCPLL, 0, 0, 1, 0x1A, L2(19), 1125000, 0x03006000},
   { {1, 1}, 1458000,  ACPU_SCPLL, 0, 0, 1, 0x1B, L2(20), 1150000, 0x03006000},
   { {1, 1}, 1512000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(21), 1150000, 0x03006000},
-  { {1, 0}, 1566000,  ACPU_SCPLL, 0, 0, 1, 0x1D, L2(22), 1175000, 0x03006000},
+  { {1, 1}, 1566000,  ACPU_SCPLL, 0, 0, 1, 0x1D, L2(22), 1175000, 0x03006000},
   { {1, 1}, 1620000,  ACPU_SCPLL, 0, 0, 1, 0x1E, L2(22), 1200000, 0x03006000},
-  { {1, 0}, 1674000,  ACPU_SCPLL, 0, 0, 1, 0x1F, L2(22), 1225000, 0x03006000},
+  { {1, 1}, 1674000,  ACPU_SCPLL, 0, 0, 1, 0x1F, L2(22), 1225000, 0x03006000},
   { {1, 1}, 1728000,  ACPU_SCPLL, 0, 0, 1, 0x20, L2(22), 1250000, 0x03006000},
   { {0, 0}, 0 },
 };
