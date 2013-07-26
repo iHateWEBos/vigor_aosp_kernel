@@ -34,14 +34,16 @@
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
 #include "acpuclock.h"
+#include <linux/rq_stats.h>
 
-#define DEBUG 0
+#define DEFAULT_RQ_POLL_JIFFIES    1
+#define DEFAULT_DEF_TIMER_JIFFIES  5
 
-#define MPDEC_TAG                       "[MPDEC]: "
-#define MSM_MPDEC_STARTDELAY            20000
-#define MSM_MPDEC_DELAY                 100
-#define MSM_MPDEC_PAUSE                 10000
-#define MSM_MPDEC_IDLE_FREQ             486000
+#define MPDEC_TAG      "[MPDEC]: "
+#define MSM_MPDEC_STARTDELAY    20000
+#define MSM_MPDEC_DELAY      100
+#define MSM_MPDEC_PAUSE      10000
+#define MSM_MPDEC_IDLE_FREQ    486000
 
 enum {
 	MSM_MPDEC_DISABLED = 0,
@@ -143,11 +145,22 @@ static int mp_decision(void)
 	int new_state = MSM_MPDEC_IDLE;
 	int nr_cpu_online;
 	int index;
-	unsigned int rq_depth;
+	unsigned int rq_avg;
 	static cputime64_t total_time = 0;
 	static cputime64_t last_time;
 	cputime64_t current_time;
 	cputime64_t this_time = 0;
+
+	unsigned int get_rq_avg(void) {
+	  unsigned long flags = 0;
+	  unsigned int rq = 0;
+
+	  spin_lock_irqsave(&rq_lock, flags);
+	  rq = rq_info.rq_avg;
+	  rq_info.rq_avg = 0;
+	  spin_unlock_irqrestore(&rq_lock, flags);
+	  return rq;
+}
 
 	if (state == MSM_MPDEC_DISABLED)
 		return MSM_MPDEC_DISABLED;
@@ -163,19 +176,19 @@ static int mp_decision(void)
 	}
 	total_time += this_time;
 
-	rq_depth = get_rq_info();
+	rq_avg = get_rq_info();
 	nr_cpu_online = num_online_cpus();
 
 	if (nr_cpu_online) {
 		index = (nr_cpu_online - 1) * 2;
-		if ((nr_cpu_online < CONFIG_NR_CPUS) && (rq_depth >= NwNs_Threshold[index])) {
+		if ((nr_cpu_online < CONFIG_NR_CPUS) && (rq_avg >= NwNs_Threshold[index])) {
 			if ((total_time >= TwTs_Threshold[index]) &&
                             (nr_cpu_online < msm_mpdec_tuners_ins.max_cpus)) {
 				new_state = MSM_MPDEC_UP;
                                 if (get_slowest_cpu_rate() <=  msm_mpdec_tuners_ins.idle_freq)
                                         new_state = MSM_MPDEC_IDLE;
 			}
-		} else if ((nr_cpu_online > 1) && (rq_depth <= NwNs_Threshold[index+1])) {
+		} else if ((nr_cpu_online > 1) && (rq_avg <= NwNs_Threshold[index+1])) {
 			if ((total_time >= TwTs_Threshold[index+1]) &&
                             (nr_cpu_online > msm_mpdec_tuners_ins.min_cpus)) {
 				new_state = MSM_MPDEC_DOWN;
@@ -195,11 +208,18 @@ static int mp_decision(void)
 	}
 
 	last_time = ktime_to_ms(ktime_get());
-#if DEBUG
-        pr_info(MPDEC_TAG"[DEBUG] rq: %u, new_state: %i | Mask=[%d%d%d%d]\n",
-                rq_depth, new_state, cpu_online(0), cpu_online(1), cpu_online(2), cpu_online(3));
-#endif
 	return new_state;
+}
+
+static void rq_work_fn(struct work_struct *work) {
+	int64_t diff, now;
+
+	now = ktime_to_ns(ktime_get());
+	diff = now - rq_info.def_start_time;
+	do_div(diff, 1000 * 1000);
+	rq_info.def_interval = (unsigned int) diff;
+	rq_info.def_timer_jiffies = msecs_to_jiffies(rq_info.def_interval);
+	rq_info.def_start_time = now;
 }
 
 static void msm_mpdec_work_thread(struct work_struct *work)
@@ -672,6 +692,17 @@ static int __init msm_mpdec_init(void)
 		per_cpu(msm_mpdec_cpudata, cpu).device_suspended = false;
 		per_cpu(msm_mpdec_cpudata, cpu).online = true;
 	}
+
+	rq_wq = create_singlethread_workqueue("rq_stats");
+	BUG_ON(!rq_wq);
+	INIT_WORK(&rq_info.def_timer_work, rq_work_fn);
+	spin_lock_init(&rq_lock);
+	rq_info.rq_poll_jiffies = DEFAULT_RQ_POLL_JIFFIES;
+	rq_info.def_timer_jiffies = DEFAULT_DEF_TIMER_JIFFIES;
+	rq_info.def_start_time = ktime_to_ns(ktime_get());
+	rq_info.rq_poll_last_jiffy = 0;
+	rq_info.def_timer_last_jiffy = 0;
+	rq_info.init = 1;
 
         was_paused = true;
 
