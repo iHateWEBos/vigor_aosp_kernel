@@ -523,9 +523,11 @@ static struct mipi_dsi_platform_data mipi_pdata = {
 };
 
 int mdp_core_clk_rate_table[] = {
+	59080000,
 	128000000,
 	128000000,
 	200000000,
+	160000000
 	200000000,
 };
 
@@ -547,7 +549,7 @@ static struct gamma_curvy gamma_tbl = {
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 28,
-	.mdp_core_clk_rate = 128000000,
+	.mdp_core_clk_rate = 200000000,
 	.mdp_core_clk_table = mdp_core_clk_rate_table,
 	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 #ifdef CONFIG_MSM_BUS_SCALING
