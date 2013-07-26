@@ -175,6 +175,7 @@ static int mp_decision(void)
 		this_time = current_time - last_time;
 	}
 	total_time += this_time;
+
 	rq_avg = get_rq_avg();
 	nr_cpu_online = num_online_cpus();
 
